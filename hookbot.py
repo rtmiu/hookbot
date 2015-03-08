@@ -10,17 +10,18 @@ import ssl
 import sys
 import time
 
+from server import HookServer
+
 if len(sys.argv) != 6:
-  if len(sys.argv) != 5:
-    print "Usage: python %s <host> <channel (no #)> [--ssl|--plain] <nick> <hookport>" % sys.argv[0]
-    exit(0)
+  print "Usage: python %s <host> <channel (no #)> [--ssl|--plain] <nick> <hookport>" % sys.argv[0]
+  exit(0)
 
 
 HOST = sys.argv[1]
 CHANNEL = "#"+sys.argv[2]
 SSL = sys.argv[3].lower() == '--ssl'
 PORT = 6697 if SSL else 6667
-#HKPT = 4444 if not sys.argv[5] else sys.argv[5] # the port the bot will listen on for hook events. not supported yet
+HKPT =  int(sys.argv[5]) # the port the bot will listen on for hook events.
 
 NICK = sys.argv[4]
 
@@ -49,19 +50,29 @@ def got_message(message):
 def read_loop(callback):
   data = ""
   CRLF = '\r\n'
+  h = HookServer(('', HKPT))
   while True:
     time.sleep(1)
     try:
-      readables, writables, exceptionals = select.select([s],[s],[s])
+      readables, writables, exceptionals = select.select([s, h.socket],[s, h.socket],[s, h.socket])
       if s in readables:
         data += s.recv(512)
         while CRLF in data:
           message = data[:data.index(CRLF)]
           data = data[data.index(CRLF)+2:]
           callback(message)
+      if h.socket in readables:
+        h.handle_request()
+        hook = json.loads(h.hook)
+        try:
+          # this only works for push hooks currently
+          s.sendall('NOTICE {0} :{1[pusher][name]} pushed {2} commit(s) to {1[repository][name]} | "{1[head_commit][message]}" | {1[compare]}\r\n'.format(CHANNEL, hook, len(hook['commits'])))
+        except e:
+          print e
+          pass
     except KeyboardInterrupt:
       print "Leaving..."
-      s.sendall("QUIT %s :Bye\r\n"%(CHANNEL))
+      s.sendall("QUIT Bye\r\n")
       s.close()
       exit(0)
 
