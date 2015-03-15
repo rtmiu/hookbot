@@ -22,7 +22,6 @@ CHANNEL = "#"+sys.argv[2]
 SSL = sys.argv[3].lower() == '--ssl'
 PORT = 6697 if SSL else 6667
 HKPT =  int(sys.argv[5]) # the port the bot will listen on for hook events.
-
 NICK = sys.argv[4]
 
 plain = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -52,8 +51,8 @@ def read_loop(callback):
   CRLF = '\r\n'
   h = HookServer(('', HKPT))
   while True:
-    time.sleep(1)
     try:
+      time.sleep(0.001)
       readables, writables, exceptionals = select.select([s, h.socket],[s, h.socket],[s, h.socket])
       if s in readables:
         data += s.recv(512)
